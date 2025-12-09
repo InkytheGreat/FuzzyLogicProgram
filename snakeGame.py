@@ -28,7 +28,7 @@ pygame.display.set_caption('100x100 Snake Game')
 tp.init(screen, tp.theme_human)
 
 # Create a speed slider using ThorPy
-speedSlider = tp.SliderWithText(mode="h", length=200, min_value=10, max_value=10000, initial_value=100, show_value_on_right_side=True, text="")
+speedSlider = tp.SliderWithText(mode="h", length=200, min_value=10, max_value=1000, initial_value=100, show_value_on_right_side=True, text="")
 #speedSlider.set_font_color((255, 255, 255))  # Set text color to white
 
 # Create a ThorPy box to contain the slider
@@ -252,13 +252,13 @@ def main():
             current_time = time.time()
             
             # If 1 second has passed since the last update
-            '''if current_time - last_cps_time >= 1.0:
+            if current_time - last_cps_time >= 1.0:
                 cps_value = cps_counter
                 cps_counter = 0
                 last_cps_time = current_time
                 # Optional: print to console to debug lag
                 # print(f"Actual CPS: {cps_value}")
-            '''
+            
             # Display score
             score_text = font.render(f'Score: {score}', True, TEXT_COLOR)
             screen.blit(score_text, (10, 10))
@@ -276,10 +276,10 @@ def main():
             speedSlider.draw()
             pygame.display.flip()
             cycles += 1
-            if score % 25 == 0 and prevScore != score and score != 0:
+            '''if score % 25 == 0 and prevScore != score and score != 0:
                 prevScore = score
                 cyclesFor25Food = cycles
-                print(f"Cycles to reach {score} food: {cyclesFor25Food}")
+                print(f"Cycles to reach {score} food: {cyclesFor25Food}")'''
                 
             # Control game speed
             clock.tick(speedSlider.get_value())  # Adjust for difficulty
