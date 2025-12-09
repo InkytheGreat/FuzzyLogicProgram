@@ -128,9 +128,6 @@ R11 = Rule({(obstacle.near, obstacle_left.far, obstacle_right.far): direction.le
 R_panic_L = Rule({(obstacle_left.near): direction.right})
 R_panic_R = Rule({(obstacle_right.near): direction.left})
 
-# 2. HEAD-ON COLLISION HANDLING (The Decision Tree)
-# We only care about Front Obstacles if sides are NOT near (handled above).
-
 # Case A: Front blocked, but Angle says "Go Left" -> We Obey Angle
 R_headon_L = Rule({
     (obstacle.near, obstacle_left.far, angle.left): direction.left
@@ -148,6 +145,8 @@ R_headon_RC = Rule({
     (obstacle.near, obstacle_right.far, angle.rightCenter): direction.right
 })
 
+# Case B2: Front blocked, Angle is somewhat Left/Right, but only one side is safe.
+# We Deflect away from the blocked side.
 R_deflect_L = Rule({
     (obstacle.near , obstacle_left.far , angle.leftCenter):
     direction.left}
@@ -158,8 +157,7 @@ R_deflect_R = Rule({
     direction.right}
 )
 
-# Case C: THE TRUE STALEMATE (The Tie-Breaker)
-# Front is blocked, sides are safe, AND Angle is Dead Center (or unknown).
+# Case C: Front is blocked, sides are safe, AND Angle is Dead Center (or unknown).
 # ONLY NOW do we force an arbitrary Right turn.
 R_stalemate = Rule({
     (obstacle.near, obstacle_left.far, obstacle_right.far, angle.center): 
@@ -172,7 +170,6 @@ R_stalemate = Rule({
 # Exploration (random movement)
 R_random1 = Rule({(exploration.high, obstacle_right.far): direction.right})
 R_random2 = Rule({(exploration.high, obstacle_left.far): direction.left})
-#R_random3 = Rule({(exploration.high, obstacle.far): direction.straight})
 R_explore_safe = Rule({(exploration.high, obstacle_left.far, obstacle_right.far, obstacle.far): direction.right})
 
 

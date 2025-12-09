@@ -157,22 +157,18 @@ def main():
             CRITICAL_DIST = 8 
 
             if distToObstFront < CRITICAL_DIST and distToObstLeft < CRITICAL_DIST and distToObstRight < CRITICAL_DIST:
-                print(f"!!! PANIC [F:{distToObstFront} L:{distToObstLeft} R:{distToObstRight} Space:{space_val:.2f}]")
+                #print(f"!!! PANIC [F:{distToObstFront} L:{distToObstLeft} R:{distToObstRight} Space:{space_val:.2f}]")
 
-                # 1. Define Options
+                # Define Options
                 options = {
                     'front': distToObstFront,
                     'left': distToObstLeft,
                     'right': distToObstRight
                 }
 
-                # 2. Find the "Raw" Best Direction (Pure Distance)
+                # Find the "Raw" Best Direction (Pure Distance)
                 best_raw_dir = max(options, key=options.get)
                 max_dist = options[best_raw_dir]
-
-                # 3. INTELLIGENT OVERRIDE (The Fix)
-                # If "Straight" is the winner, but it's a short dead end (< 5), 
-                # check if we should bail out early towards Open Space.
                 
                 final_decision = best_raw_dir
 
@@ -181,12 +177,12 @@ def main():
                     
                     # If Space is heavily Left (<-0.4) and Left isn't instantly fatal (>1)
                     if space_val < -0.4 and distToObstLeft > 1:
-                        print("   -> OVERRIDE: Straight is dead end. Bailing LEFT to Space.")
+                        #print("   -> OVERRIDE: Straight is dead end. Bailing LEFT to Space.")
                         final_decision = 'left'
                         
                     # If Space is heavily Right (>0.4) and Right isn't instantly fatal (>1)
                     elif space_val > 0.4 and distToObstRight > 1:
-                        print("   -> OVERRIDE: Straight is dead end. Bailing RIGHT to Space.")
+                        #print("   -> OVERRIDE: Straight is dead end. Bailing RIGHT to Space.")
                         final_decision = 'right'
 
                 # 4. Execute the Decision
@@ -200,7 +196,7 @@ def main():
             # Only run your Fuzzy Logic interpreter if the Panic Override didn't fire
             else:
                 directionValue = totalRule({ angle: relative_angle_degrees, distance: distance_to_food, obstacle: distToObstFront, obstacle_right: distToObstRight, obstacle_left: distToObstLeft, exploration: explorationValue, space_advantage: space_val}, cog)
-                print(f"Direction Value: {direction_output(directionValue)} == {directionValue} | Angle: {relative_angle_degrees} | Distance to Food: {distance_to_food} | Obstacle: {distToObstFront} | Obstacle Left: {distToObstLeft} | Obstacle Right: {distToObstRight} | Exploration: {explorationValue} | Space Advantage: {space_val}")
+                #print(f"Direction Value: {direction_output(directionValue)} == {directionValue} | Angle: {relative_angle_degrees} | Distance to Food: {distance_to_food} | Obstacle: {distToObstFront} | Obstacle Left: {distToObstLeft} | Obstacle Right: {distToObstRight} | Exploration: {explorationValue} | Space Advantage: {space_val}")
                 if directionValue is None:
                     directionValue = 1.0
 
@@ -256,13 +252,13 @@ def main():
             current_time = time.time()
             
             # If 1 second has passed since the last update
-            if current_time - last_cps_time >= 1.0:
+            '''if current_time - last_cps_time >= 1.0:
                 cps_value = cps_counter
                 cps_counter = 0
                 last_cps_time = current_time
                 # Optional: print to console to debug lag
                 # print(f"Actual CPS: {cps_value}")
-            
+            '''
             # Display score
             score_text = font.render(f'Score: {score}', True, TEXT_COLOR)
             screen.blit(score_text, (10, 10))
@@ -280,10 +276,10 @@ def main():
             speedSlider.draw()
             pygame.display.flip()
             cycles += 1
-            #if score % 25 == 0 and prevScore != score and score != 0:
-            #    prevScore = score
-            #    cyclesFor25Food = cycles
-            #    print(f"Cycles to reach {score} food: {cyclesFor25Food}")
+            if score % 25 == 0 and prevScore != score and score != 0:
+                prevScore = score
+                cyclesFor25Food = cycles
+                print(f"Cycles to reach {score} food: {cyclesFor25Food}")
                 
             # Control game speed
             clock.tick(speedSlider.get_value())  # Adjust for difficulty
