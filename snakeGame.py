@@ -1,15 +1,33 @@
+import json
 import math
+import os
+import pygad
 import pygame
 import random
 import time
 import thorpy as tp
 from fuzzylogic.defuzz import bisector, cog, mom, som, lom
 from fuzzyLogic import totalRule, angle, distance, obstacle, obstacle_left, obstacle_right, direction_output, exploration, space_advantage
+import fuzzyLogic
 from raycast import get_space_density
+from fuzzylogic.classes import Domain, Set, Rule
+from fuzzylogic.functions import R, S, alpha
+from fuzzylogic.defuzz import bisector
 
 
-# Initialize Pygame
-pygame.init()
+GENE_FILE = "best_snake_genes.json"
+
+if os.path.exists(GENE_FILE):
+    with open(GENE_FILE, "r") as file:
+        optimized_genes = json.load(file)
+    print(f"Found {GENE_FILE}! Injecting optimized parameters into the game...")
+    
+    # Send the genes to the fuzzy logic file to overwrite the defaults
+    fuzzyLogic.apply_optimized_genes(optimized_genes)
+else:
+    print("No optimized genes found. Running on default hand-coded fuzzy logic.")
+    
+
 
 # Constants
 GRID_SIZE = 100
@@ -22,41 +40,50 @@ FOOD_COLOR = (255, 0, 0)
 TEXT_COLOR = (255, 255, 255)
 HEAD_COLOR = (0, 0, 255)  # Blue
 
-# Set up the display
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption('100x100 Snake Game')
-tp.init(screen, tp.theme_human)
 
-# Create a speed slider using ThorPy
-speedSlider = tp.SliderWithText(mode="h", length=200, min_value=10, max_value=1000, initial_value=100, show_value_on_right_side=True, text="")
-#speedSlider.set_font_color((255, 255, 255))  # Set text color to white
-
-# Create a ThorPy box to contain the slider
-sliderBox = tp.Box(children=[speedSlider])
-
-# Set the position of the slider box
-sliderBox.set_topleft(10, SCREEN_HEIGHT - 50)
-
-# Make the slider box draggable
-sliderBox.set_draggable(False, False)
-
-# Clock for controlling game speed
-clock = pygame.time.Clock()
-
-# Font for displaying score
-font = pygame.font.SysFont('Arial', 20)
-
-def draw_grid():
+def draw_grid(screen):
     """Draw the grid lines on the screen."""
     for x in range(0, SCREEN_WIDTH, CELL_SIZE):
         pygame.draw.line(screen, GRID_COLOR, (x, 0), (x, SCREEN_HEIGHT))
     for y in range(0, SCREEN_HEIGHT, CELL_SIZE):
         pygame.draw.line(screen, GRID_COLOR, (0, y), (SCREEN_WIDTH, y))
+        
 
-def main():
+
+def main( headless=False, genes=None):
     
+    if headless and genes is not None:
+        fuzzyLogic.apply_optimized_genes(genes)
     
-    def get_distance_to_obstacle(snake, direction, grid_size=100):
+    if not headless:
+        # Initialize Pygame
+        pygame.init()
+
+        # Set up the display
+        screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        pygame.display.set_caption('100x100 Snake Game')
+        tp.init(screen, tp.theme_human)
+
+        # Create a speed slider using ThorPy
+        speedSlider = tp.SliderWithText(mode="h", length=200, min_value=10, max_value=1000, initial_value=100, show_value_on_right_side=True, text="")
+        #speedSlider.set_font_color((255, 255, 255))  # Set text color to white
+
+        # Create a ThorPy box to contain the slider
+        sliderBox = tp.Box(children=[speedSlider])
+
+        # Set the position of the slider box
+        sliderBox.set_topleft(10, SCREEN_HEIGHT - 50)
+
+        # Make the slider box draggable
+        sliderBox.set_draggable(False, False)
+
+        # Clock for controlling game speed
+        clock = pygame.time.Clock()
+
+        # Font for displaying score
+        font = pygame.font.SysFont('Arial', 20)
+
+    def get_distance_to_obstacle(snake, direction, grid_size=100, max_vision=40):
         """
         Calculate the distance to the nearest obstacle (snake body) in the snake's direction.
 
@@ -70,19 +97,19 @@ def main():
         """
         head_x, head_y = snake[0]
         dx, dy = direction
+        
+        body_set = set(snake[1:])
 
         # Iterate through cells in the direction of movement
-        for distance in range(1, grid_size + 1):
+        for distance in range(1, max_vision + 1):
             # Calculate the next cell position (with grid wrapping)
             next_x = (head_x + dx * distance) % grid_size
             next_y = (head_y + dy * distance) % grid_size
 
             # Check if this cell is part of the snake's body (excluding the head)
-            if (next_x, next_y) in snake[1:]:
+            if (next_x, next_y) in body_set:
                 return distance
-
-        # No obstacle found (return max possible distance)
-        return grid_size
+        return max_vision  # No obstacle found within max_vision
 
     def get_distance_to_obstacle_left(snake, direction, grid_size=100):
         """Calculate distance to the nearest obstacle to the left of the snake's head."""
@@ -103,6 +130,7 @@ def main():
         cycles = 0
         cyclesFor25Food = 0
         prevScore = 0
+        cyclesSinceLastFood = 0
         # Initial snake position and body
         snake = [(GRID_SIZE // 2, GRID_SIZE // 2)]
         direction = (1, 0)  # Initial direction: right
@@ -117,9 +145,10 @@ def main():
 
         while not game_over:
             # Handle events
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    game_over = True
+            if not headless:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        game_over = True
 
                 # elif event.type == pygame.KEYDOWN:
                 #     if event.key == pygame.K_UP and direction != (0, 1):
@@ -151,7 +180,8 @@ def main():
             distToObstRight = get_distance_to_obstacle_right(snake, direction, GRID_SIZE)
             explorationValue = 1 if random.random() < 0.1 else 0.0
             
-            space_val = get_space_density(snake, direction, GRID_SIZE)
+            #space_val = get_space_density(snake, direction, GRID_SIZE)
+            space_val = 0
             
 
             CRITICAL_DIST = 8 
@@ -185,7 +215,7 @@ def main():
                         #print("   -> OVERRIDE: Straight is dead end. Bailing RIGHT to Space.")
                         final_decision = 'right'
 
-                # 4. Execute the Decision
+                # Execute the Decision
                 if final_decision == 'left':
                     direction = (direction[1], -direction[0])
                 elif final_decision == 'right':
@@ -195,7 +225,7 @@ def main():
                 
             # Only run your Fuzzy Logic interpreter if the Panic Override didn't fire
             else:
-                directionValue = totalRule({ angle: relative_angle_degrees, distance: distance_to_food, obstacle: distToObstFront, obstacle_right: distToObstRight, obstacle_left: distToObstLeft, exploration: explorationValue, space_advantage: space_val}, cog)
+                directionValue = fuzzyLogic.totalRule({ angle: relative_angle_degrees, distance: distance_to_food, obstacle: distToObstFront, obstacle_right: distToObstRight, obstacle_left: distToObstLeft, exploration: explorationValue, space_advantage: space_val}, mom)
                 #print(f"Direction Value: {direction_output(directionValue)} == {directionValue} | Angle: {relative_angle_degrees} | Distance to Food: {distance_to_food} | Obstacle: {distToObstFront} | Obstacle Left: {distToObstLeft} | Obstacle Right: {distToObstRight} | Exploration: {explorationValue} | Space Advantage: {space_val}")
                 if directionValue is None:
                     directionValue = 1.0
@@ -216,7 +246,8 @@ def main():
 
             # Check for self-collision
             if new_head in snake:
-                pygame.draw.rect(screen, FOOD_COLOR, (new_head[0] * CELL_SIZE, new_head[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+                if not headless:
+                    pygame.draw.rect(screen, FOOD_COLOR, (new_head[0] * CELL_SIZE, new_head[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE))
                 game_over = True
                 break
 
@@ -226,6 +257,8 @@ def main():
             # Check if food is eaten
             if new_head == food:
                 score += 1
+                #print("Food eaten! Score:", score)
+                cyclesSinceLastFood = 0  # Reset the cycle counter
                 # Generate new food
                 food = (random.randint(0, GRID_SIZE - 1), random.randint(0, GRID_SIZE - 1))
                 while food in snake:
@@ -233,86 +266,97 @@ def main():
             else:
                 # Remove tail if no food eaten
                 snake.pop()
-
-            # Draw everything
-            screen.fill((0, 0, 0))
-            draw_grid()
-
-            # Draw snake
-            for segment in snake[1:]:  # Skip the head (first element)
-                pygame.draw.rect(screen, SNAKE_COLOR, (segment[0] * CELL_SIZE, segment[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-
-            # Draw snake head (blue)
-            pygame.draw.rect(screen, HEAD_COLOR, (snake[0][0] * CELL_SIZE, snake[0][1] * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-
-            # Draw food
-            pygame.draw.rect(screen, FOOD_COLOR, (food[0] * CELL_SIZE, food[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-
-            cps_counter += 1
-            current_time = time.time()
-            
-            # If 1 second has passed since the last update
-            if current_time - last_cps_time >= 1.0:
-                cps_value = cps_counter
-                cps_counter = 0
-                last_cps_time = current_time
-                # Optional: print to console to debug lag
-                # print(f"Actual CPS: {cps_value}")
-            
-            # Display score
-            score_text = font.render(f'Score: {score}', True, TEXT_COLOR)
-            screen.blit(score_text, (10, 10))
-            
-            cps_text = font.render(f'Speed: {cps_value} CPS', True, (255, 255, 0)) # Yellow color
-            screen.blit(cps_text, (10, 50))
-            
-            cycles_text = font.render(f'Cycles: {cycles}', True, TEXT_COLOR)
-            screen.blit(cycles_text, (10, 30))
-            
-            
-
-            # Update slider and display
-            sliderBox.update(pygame.mouse.get_rel())  # Ensure slider processes user interactions
-            speedSlider.draw()
-            pygame.display.flip()
+                
             cycles += 1
+            cyclesSinceLastFood += 1
+            if headless and cyclesSinceLastFood > 2000:
+                game_over = True
+            if not headless:
+                # Draw everything
+                screen.fill((0, 0, 0))
+                draw_grid(screen)
+
+                # Draw snake
+                for segment in snake[1:]:  # Skip the head (first element)
+                    pygame.draw.rect(screen, SNAKE_COLOR, (segment[0] * CELL_SIZE, segment[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+
+                # Draw snake head (blue)
+                pygame.draw.rect(screen, HEAD_COLOR, (snake[0][0] * CELL_SIZE, snake[0][1] * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+
+                # Draw food
+                pygame.draw.rect(screen, FOOD_COLOR, (food[0] * CELL_SIZE, food[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+
+                cps_counter += 1
+                current_time = time.time()
+
+                # If 1 second has passed since the last update
+                if current_time - last_cps_time >= 1.0:
+                    cps_value = cps_counter
+                    cps_counter = 0
+                    last_cps_time = current_time
+                    # Optional: print to console to debug lag
+                    # print(f"Actual CPS: {cps_value}")
+
+                # Display score
+                score_text = font.render(f'Score: {score}', True, TEXT_COLOR)
+                screen.blit(score_text, (10, 10))
+
+                cps_text = font.render(f'Speed: {cps_value} CPS', True, (255, 255, 0)) # Yellow color
+                screen.blit(cps_text, (10, 50))
+
+                cycles_text = font.render(f'Cycles: {cycles}', True, TEXT_COLOR)
+                screen.blit(cycles_text, (10, 30))
+
+
+
+                # Update slider and display
+                sliderBox.update(pygame.mouse.get_rel())  # Ensure slider processes user interactions
+                speedSlider.draw()
+                pygame.display.flip()
+                # Control game speed
+                clock.tick(speedSlider.get_value())  # Adjust for difficulty
+            
             '''if score % 25 == 0 and prevScore != score and score != 0:
                 prevScore = score
                 cyclesFor25Food = cycles
                 print(f"Cycles to reach {score} food: {cyclesFor25Food}")'''
                 
-            # Control game speed
-            clock.tick(speedSlider.get_value())  # Adjust for difficulty
+        if headless:
+            fitness = (score * 1000) + cycles
+            return fitness 
+            
             
         if not app_running:
             break
         
-        
-        # Display game over message
-        # screen.fill((0,0,0)) # Clear screen for clarity
-        msg1 = font.render(f'Game Over! Score: {score}', True, TEXT_COLOR)
-        msg2 = font.render('Press R to Restart or Q to Quit', True, TEXT_COLOR)
-        
-        screen.blit(msg1, (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 20 ))
-        screen.blit(msg2, (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 20))
-        pygame.display.flip()
+        if not headless:
+            # Display game over message
+            # screen.fill((0,0,0)) # Clear screen for clarity
+            msg1 = font.render(f'Game Over! Score: {score}', True, TEXT_COLOR)
+            msg2 = font.render('Press R to Restart or Q to Quit', True, TEXT_COLOR)
 
-        # Wait for R (restart) or Q (quit)
-        waiting_for_input = True
-        while waiting_for_input:
-            clock.tick(15) # Reduce CPU usage during wait
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    waiting_for_input = False
-                    app_running = False
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_r:
-                        waiting_for_input = False # Breaks wait loop, 'app_running' stays True -> Restart
-                    elif event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
+            screen.blit(msg1, (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 20 ))
+            screen.blit(msg2, (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 20))
+            pygame.display.flip()
+
+            # Wait for R (restart) or Q (quit)
+            waiting_for_input = True
+            while waiting_for_input:
+                clock.tick(15) # Reduce CPU usage during wait
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
                         waiting_for_input = False
-                        app_running = False # Breaks wait loop AND outer loop -> Quit
+                        app_running = False
+                    elif event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_r:
+                            waiting_for_input = False # Breaks wait loop, 'app_running' stays True -> Restart
+                        elif event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
+                            waiting_for_input = False
+                            app_running = False # Breaks wait loop AND outer loop -> Quit
+    if not headless:
+        pygame.quit()
 
-    pygame.quit()
+    
 
 if __name__ == '__main__':
     main()

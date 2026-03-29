@@ -180,6 +180,82 @@ rules = [
     R_headon_L, R_headon_LC, R_headon_R, R_headon_RC, R_stalemate, R_deflect_L, R_deflect_R
 ]
 
+def apply_optimized_genes(solution):
+    """
+    Takes an array of genes from the GA and overwrites the membership functions.
+    """
+    global R1, R2, R3, R_random1, R_random2, R_explore_safe, R_panic_L, R_panic_R
+    global R_headon_L, R_headon_LC, R_headon_R, R_headon_RC, R_stalemate, R_deflect_L, R_deflect_R
+    global rules, totalRule
+
+    # Map the solution array to variables (Sorting ensures valid logic bounds)
+    a_left = sorted([solution[0], solution[1]])
+    a_right = sorted([solution[2], solution[3]])
+    o_near = sorted([solution[4], solution[5]])
+    o_far = sorted([solution[6], solution[7]])
+
+    # Overwrite the Domains
+    angle.left = S(a_left[0], a_left[1])
+    angle.right = R(a_right[0], a_right[1])
+    obstacle.near = S(o_near[0], o_near[1])
+    obstacle.far = R(o_far[0], o_far[1])
+
+    # 3. Rebuild the rules so they use the NEW modified domains
+    R1 = Rule({(angle.left, obstacle_left.far, ~space_advantage.right_open): direction.left})
+    R2 = Rule({(angle.right, obstacle_right.far, ~space_advantage.left_open): direction.right})
+    R3 = Rule({(angle.center, obstacle.far, space_advantage.balanced): direction.straight})
+    R_panic_L = Rule({(obstacle_left.near): direction.right})
+    R_panic_R = Rule({(obstacle_right.near): direction.left})
+
+    # Case A: Front blocked, but Angle says "Go Left" -> We Obey Angle
+    R_headon_L = Rule({
+        (obstacle.near, obstacle_left.far, angle.left): direction.left
+    })
+    # Also cover LeftCenter to be safe
+    R_headon_LC = Rule({
+        (obstacle.near, obstacle_left.far, angle.leftCenter): direction.left
+    })
+
+    # Case B: Front blocked, but Angle says "Go Right" -> We Obey Angle
+    R_headon_R = Rule({
+        (obstacle.near, obstacle_right.far, angle.right): direction.right
+    })
+    R_headon_RC = Rule({
+        (obstacle.near, obstacle_right.far, angle.rightCenter): direction.right
+    })
+
+    # Case B2: Front blocked, Angle is somewhat Left/Right, but only one side is safe.
+    # We Deflect away from the blocked side.
+    R_deflect_L = Rule({
+        (obstacle.near , obstacle_left.far , angle.leftCenter):
+        direction.left}
+    )
+
+    R_deflect_R = Rule({
+        (obstacle.near , obstacle_right.far , angle.rightCenter):
+        direction.right}
+    )
+
+    # Case C: Front is blocked, sides are safe, AND Angle is Dead Center (or unknown).
+    # ONLY NOW do we force an arbitrary Right turn.
+    R_stalemate = Rule({
+        (obstacle.near, obstacle_left.far, obstacle_right.far, angle.center): 
+        direction.right
+    })
+
+    # Default
+    #R_default = Rule({(): direction.straight})
+
+    # Exploration (random movement)
+    R_random1 = Rule({(exploration.high, obstacle_right.far): direction.right})
+    R_random2 = Rule({(exploration.high, obstacle_left.far): direction.left})
+    R_explore_safe = Rule({(exploration.high, obstacle_left.far, obstacle_right.far, obstacle.far): direction.right})
+    
+    rules = [R1, R2, R3, R_random1, R_random2, R_explore_safe, R_panic_L, R_panic_R, 
+             R_headon_L, R_headon_LC, R_headon_R, R_headon_RC, R_stalemate, R_deflect_L, R_deflect_R]
+    
+    totalRule = sum(rules)
+
 # sample inputs (angle degrees, distance units, obstacle front distance
 samples = [
     {angle: -90, distance: 50, obstacle: 50, space_advantage: 0},
