@@ -190,17 +190,30 @@ def apply_optimized_genes(solution):
 
     # Map the solution array to variables (Sorting ensures valid logic bounds)
     a_left = sorted([solution[0], solution[1]])
-    a_right = sorted([solution[2], solution[3]])
-    o_near = sorted([solution[4], solution[5]])
-    o_far = sorted([solution[6], solution[7]])
+    a_leftCenter = sorted([solution[2],solution[3]])
+    a_rightCenter = sorted([solution[4],solution[5]])
+    a_right = sorted([solution[6], solution[7]])
+    o_near = sorted([solution[8], solution[9]])
+    o_far = sorted([solution[10], solution[11]])
+    o_left_near = sorted([solution[12], solution[13]])
+    o_left_far = sorted([solution[14], solution[15]])
+    o_right_near = sorted([solution[16], solution[17]])
+    o_right_far = sorted([solution[18], solution[19]])
 
     # Overwrite the Domains
     angle.left = S(a_left[0], a_left[1])
+    angle.leftCenter = R(a_leftCenter[0], a_leftCenter[1])
+    angle.rightCenter = R(a_rightCenter[0], a_rightCenter[1])
+    angle.center = angle.leftCenter & angle.rightCenter
     angle.right = R(a_right[0], a_right[1])
     obstacle.near = S(o_near[0], o_near[1])
     obstacle.far = R(o_far[0], o_far[1])
+    obstacle_left.near = S(o_left_near[0], o_left_near[1])
+    obstacle_left.far = R(o_left_far[0], o_left_far[1])
+    obstacle_right.near = S(o_right_near[0], o_right_near[1])
+    obstacle_right.far = R(o_right_far[0], o_right_far[1])
 
-    # 3. Rebuild the rules so they use the NEW modified domains
+    #  Rebuild the rules so they use the new modified domains
     R1 = Rule({(angle.left, obstacle_left.far, ~space_advantage.right_open): direction.left})
     R2 = Rule({(angle.right, obstacle_right.far, ~space_advantage.left_open): direction.right})
     R3 = Rule({(angle.center, obstacle.far, space_advantage.balanced): direction.straight})

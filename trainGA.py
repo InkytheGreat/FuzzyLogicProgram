@@ -1,6 +1,8 @@
 import json
 import numpy
 import pygad
+from os import environ
+environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
 # Import your game loop
 from snakeGame import main as play_snake
@@ -28,9 +30,16 @@ def on_generation(ga_instance):
 # Optimizing 8 genes total.
 gene_space = [
     {'low': -180, 'high': 0}, {'low': -180, 'high': 0}, # Genes 0, 1: Angle Left 
-    {'low': 0, 'high': 180}, {'low': 0, 'high': 180},   # Genes 2, 3: Angle Right 
-    {'low': 0, 'high': 50}, {'low': 0, 'high': 50},     # Genes 4, 5: Obstacle Near 
-    {'low': 10, 'high': 100}, {'low': 10, 'high': 100}  # Genes 6, 7: Obstacle Far 
+    {'low': -180, 'high': 0}, {'low': -180, 'high': 0}, # Genes 2, 3: Angle Left Center 
+    {'low': 0, 'high': 180}, {'low': 0, 'high': 180},   # Genes 4, 5: Angle Right Center
+    {'low': 0, 'high': 180}, {'low': 0, 'high': 180},   # Genes 6, 7: Angle Right 
+    {'low': 0, 'high': 50}, {'low': 0, 'high': 50},     # Genes 8, 9: Obstacle Near 
+    {'low': 10, 'high': 100}, {'low': 10, 'high': 100},  # Genes 10, 11: Obstacle Far 
+    {'low': 0, 'high': 50}, {'low': 0, 'high': 50},     # Genes 12, 13: Obstacle Left Near 
+    {'low': 10, 'high': 100}, {'low': 10, 'high': 100},  # Genes 14, 15: Obstacle Left Far 
+    {'low': 0, 'high': 50}, {'low': 0, 'high': 50},     # Genes 16, 17: Obstacle Right Near 
+    {'low': 10, 'high': 100}, {'low': 10, 'high': 100}  # Genes 18, 19: Obstacle Right Far 
+
 ]
 
 # ==========================================
@@ -40,15 +49,16 @@ ga_instance = pygad.GA(
     num_generations=30,           # How many cycles to train (start with 30-50 to test)
     num_parents_mating=5,         # How many top performers breed
     fitness_func=fitness_func,    # The grading rubric
-    sol_per_pop=15,               # How many snakes play per generation
-    num_genes=8,                  # Must match the length of gene_space
+    sol_per_pop=30,               # How many snakes play per generation
+    num_genes=len(gene_space),    # Must match the length of gene_space
     gene_space=gene_space,        # The min/max boundaries defined above
     parent_selection_type="sss",  # Steady-state selection
     keep_parents=2,               # Keep the top 2 snakes identical for the next generation
     crossover_type="single_point",
     mutation_type="random",
-    mutation_percent_genes=25,     # Mutate ~2 genes per offspring to keep diversity
-    on_generation=on_generation
+    mutation_percent_genes=15,     # Mutate ~2 genes per offspring to keep diversity
+    on_generation=on_generation,
+    parallel_processing=["process", 15]
 )
 
 # ==========================================

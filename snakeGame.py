@@ -20,12 +20,12 @@ GENE_FILE = "best_snake_genes.json"
 if os.path.exists(GENE_FILE):
     with open(GENE_FILE, "r") as file:
         optimized_genes = json.load(file)
-    print(f"Found {GENE_FILE}! Injecting optimized parameters into the game...")
+    #print(f"Found {GENE_FILE}! Injecting optimized parameters into the game...")
     
     # Send the genes to the fuzzy logic file to overwrite the defaults
     fuzzyLogic.apply_optimized_genes(optimized_genes)
-else:
-    print("No optimized genes found. Running on default hand-coded fuzzy logic.")
+#else:
+    #print("No optimized genes found. Running on default hand-coded fuzzy logic.")
     
 
 
