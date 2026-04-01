@@ -1,11 +1,14 @@
 import json
 import numpy
 import pygad
+import time
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
-# Import your game loop
+# Import game loop
 from snakeGame import main as play_snake
+
+last_generation_time = 0
 
 def fitness_func(ga_instance, solution, solution_idx):
     total_fitness = 0
@@ -17,12 +20,18 @@ def fitness_func(ga_instance, solution, solution_idx):
 
 def on_generation(ga_instance):
     """This function runs every time a generation completes."""
+    global last_generation_time
+
+    current_time = time.time()
+    generation_time = current_time - last_generation_time
+    last_generation_time = current_time
+
     generation = ga_instance.generations_completed
     # ga_instance.best_solution() returns (solution, fitness, index)
     best_fitness = ga_instance.best_solution()[1] 
     avg_fitness = numpy.mean(ga_instance.last_generation_fitness)
     
-    print(f"Gen {generation} | Best: {best_fitness:.2f} | Avg: {avg_fitness:.2f}")
+    print(f"Gen {generation} | Best: {best_fitness:.2f} | Avg: {avg_fitness:.2f} | Time: {generation_time:.2f}s")
 
 # ==========================================
 # DEFINE THE SEARCH BOUNDARIES (GENE SPACE)
@@ -53,12 +62,12 @@ ga_instance = pygad.GA(
     num_genes=len(gene_space),    # Must match the length of gene_space
     gene_space=gene_space,        # The min/max boundaries defined above
     parent_selection_type="sss",  # Steady-state selection
-    keep_parents=2,               # Keep the top 2 snakes identical for the next generation
+    keep_parents=1,               # Keep the top 2 snakes identical for the next generation
     crossover_type="single_point",
     mutation_type="random",
     mutation_percent_genes=15,     # Mutate ~2 genes per offspring to keep diversity
     on_generation=on_generation,
-    parallel_processing=["process", 15]
+    parallel_processing=["process", 30]
 )
 
 # ==========================================
@@ -68,6 +77,7 @@ if __name__ == '__main__':
     print("Starting Headless Genetic Algorithm Training...")
     print("This may take a few moments. Simulating generations...")
     
+    last_generation_time = time.time()
     # Run the GA
     ga_instance.run()
     
