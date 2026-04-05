@@ -13,6 +13,7 @@ from raycast import get_space_density
 from fuzzylogic.classes import Domain, Set, Rule
 from fuzzylogic.functions import R, S, alpha
 from fuzzylogic.defuzz import bisector
+from collections import deque
 
 
 GENE_FILE = "best_snake_genes.json"
@@ -48,7 +49,12 @@ def draw_grid(screen):
     for y in range(0, SCREEN_HEIGHT, CELL_SIZE):
         pygame.draw.line(screen, GRID_COLOR, (0, y), (SCREEN_WIDTH, y))
         
-
+DIRECTION_ANGLES = {
+    (1, 0): 0.0,
+    (0, 1): math.pi / 2,
+    (-1, 0): math.pi,
+    (0, -1): -math.pi / 2
+}
 
 def main( headless=False, genes=None):
     
@@ -83,7 +89,7 @@ def main( headless=False, genes=None):
         # Font for displaying score
         font = pygame.font.SysFont('Arial', 20)
 
-    def get_distance_to_obstacle(snake, direction, grid_size=100, max_vision=40):
+    def get_distance_to_obstacle(head_pos, snake_body_set, direction, grid_size=100, max_vision=40):
         """
         Calculate the distance to the nearest obstacle (snake body) in the snake's direction.
 
@@ -95,10 +101,9 @@ def main( headless=False, genes=None):
         Returns:
             int: Distance to the nearest obstacle in grid units. Returns grid_size if no obstacle is found.
         """
-        head_x, head_y = snake[0]
+        head_x, head_y = head_pos
         dx, dy = direction
         
-        body_set = set(snake[1:])
 
         # Iterate through cells in the direction of movement
         for distance in range(1, max_vision + 1):
@@ -107,20 +112,20 @@ def main( headless=False, genes=None):
             next_y = (head_y + dy * distance) % grid_size
 
             # Check if this cell is part of the snake's body (excluding the head)
-            if (next_x, next_y) in body_set:
+            if (next_x, next_y) in snake_body_set:
                 return distance
         return max_vision  # No obstacle found within max_vision
 
-    def get_distance_to_obstacle_left(snake, direction, grid_size=100):
+    def get_distance_to_obstacle_left(head_pos, snake_body_set, direction, grid_size=100):
         """Calculate distance to the nearest obstacle to the left of the snake's head."""
         left_dir = (direction[1], -direction[0])  # Rotate direction 90° counter-clockwise
-        return get_distance_to_obstacle(snake, left_dir, grid_size)
+        return get_distance_to_obstacle(head_pos, snake_body_set, left_dir, grid_size)
 
-    def get_distance_to_obstacle_right(snake, direction, grid_size=100):
+    def get_distance_to_obstacle_right(head_pos, snake_body_set, direction, grid_size=100):
         """Calculate distance to the nearest obstacle to the right of the snake's head."""
         right_dir = (-direction[1], direction[0])  # Rotate direction 90° clockwise
-        return get_distance_to_obstacle(snake, right_dir, grid_size)
-    
+        return get_distance_to_obstacle(head_pos, snake_body_set, right_dir, grid_size)
+
     cps_counter = 0
     cps_value = 0
     last_cps_time = time.time()
@@ -132,12 +137,13 @@ def main( headless=False, genes=None):
         prevScore = 0
         cyclesSinceLastFood = 0
         # Initial snake position and body
-        snake = [(GRID_SIZE // 2, GRID_SIZE // 2)]
+        snake = deque([(GRID_SIZE // 2, GRID_SIZE // 2)])
+        snake_set = set(snake)
         direction = (1, 0)  # Initial direction: right
         
         # Place initial food
         food = (random.randint(0, GRID_SIZE - 1), random.randint(0, GRID_SIZE - 1))
-        while food in snake:
+        while food in snake_set:
             food = (random.randint(0, GRID_SIZE - 1), random.randint(0, GRID_SIZE - 1))
 
         score = 0
@@ -162,12 +168,12 @@ def main( headless=False, genes=None):
 
             # Calculate new head position
             head_x, head_y = snake[0]
-            distance_to_food = ((food[0] - head_x)**2 + (food[1] - head_y)**2)**0.5
+            distance_to_food = abs(food[0] - head_x) + abs(food[1] - head_y)
             # Calculate absolute angle to food (in radians)
             angle_to_food = math.atan2(food[1] - snake[0][1], food[0] - snake[0][0])
 
             # Calculate absolute angle of snake's direction (in radians)
-            angle_of_direction = math.atan2(direction[1], direction[0])
+            angle_of_direction = DIRECTION_ANGLES[direction]
 
             # Compute relative angle (in radians) and normalize to [-π, π]
             relative_angle = (angle_to_food - angle_of_direction + math.pi) % (2 * math.pi) - math.pi
@@ -175,9 +181,9 @@ def main( headless=False, genes=None):
             # Convert to degrees
             relative_angle_degrees = math.degrees(relative_angle)
 
-            distToObstFront = get_distance_to_obstacle(snake, direction, GRID_SIZE)
-            distToObstLeft = get_distance_to_obstacle_left(snake, direction, GRID_SIZE)
-            distToObstRight = get_distance_to_obstacle_right(snake, direction, GRID_SIZE)
+            distToObstFront = get_distance_to_obstacle(snake[0], snake_set, direction, GRID_SIZE)
+            distToObstLeft = get_distance_to_obstacle_left(snake[0], snake_set, direction, GRID_SIZE)
+            distToObstRight = get_distance_to_obstacle_right(snake[0], snake_set, direction, GRID_SIZE)
             explorationValue = 1 if random.random() < 0.1 else 0.0
             
             #space_val = get_space_density(snake, direction, GRID_SIZE)
@@ -245,14 +251,15 @@ def main( headless=False, genes=None):
             new_head = ((head_x + direction[0]) % GRID_SIZE, (head_y + direction[1]) % GRID_SIZE)
 
             # Check for self-collision
-            if new_head in snake:
+            if new_head in snake_set:
                 if not headless:
                     pygame.draw.rect(screen, FOOD_COLOR, (new_head[0] * CELL_SIZE, new_head[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE))
                 game_over = True
                 break
 
             # Insert new head
-            snake.insert(0, new_head)
+            snake.appendleft(new_head) # Replaces snake.insert(0, new_head)
+            snake_set.add(new_head)
 
             # Check if food is eaten
             if new_head == food:
@@ -261,11 +268,12 @@ def main( headless=False, genes=None):
                 cyclesSinceLastFood = 0  # Reset the cycle counter
                 # Generate new food
                 food = (random.randint(0, GRID_SIZE - 1), random.randint(0, GRID_SIZE - 1))
-                while food in snake:
+                while food in snake_set:
                     food = (random.randint(0, GRID_SIZE - 1), random.randint(0, GRID_SIZE - 1))
             else:
                 # Remove tail if no food eaten
-                snake.pop()
+                tail_removed = snake.pop()
+                snake_set.remove(tail_removed)
                 
             cycles += 1
             cyclesSinceLastFood += 1
@@ -277,11 +285,13 @@ def main( headless=False, genes=None):
                 draw_grid(screen)
 
                 # Draw snake
-                for segment in snake[1:]:  # Skip the head (first element)
-                    pygame.draw.rect(screen, SNAKE_COLOR, (segment[0] * CELL_SIZE, segment[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-
-                # Draw snake head (blue)
-                pygame.draw.rect(screen, HEAD_COLOR, (snake[0][0] * CELL_SIZE, snake[0][1] * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+                for index, segment in enumerate(snake):
+                    if index == 0:
+                        # Draw snake head (blue)
+                        pygame.draw.rect(screen, HEAD_COLOR, (segment[0] * CELL_SIZE, segment[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+                    else:
+                        # Draw snake body
+                        pygame.draw.rect(screen, SNAKE_COLOR, (segment[0] * CELL_SIZE, segment[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE))
 
                 # Draw food
                 pygame.draw.rect(screen, FOOD_COLOR, (food[0] * CELL_SIZE, food[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE))

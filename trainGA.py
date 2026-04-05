@@ -1,5 +1,6 @@
 import json
 import numpy
+from numpy import random
 import pygad
 import time
 from os import environ
@@ -12,7 +13,9 @@ last_generation_time = 0
 
 def fitness_func(ga_instance, solution, solution_idx):
     total_fitness = 0
-    num_trials = 3  # Run a few times to ensure the snake isn't just getting lucky
+    num_trials = 1  # Run a few times to ensure the snake isn't just getting lucky
+    current_gen = ga_instance.generations_completed
+    random.seed(current_gen)
     for _ in range(num_trials):
         # Call game in headless mode, passing the current genes
         total_fitness += play_snake(headless=True, genes=solution) 
@@ -56,18 +59,19 @@ gene_space = [
 # ==========================================
 ga_instance = pygad.GA(
     num_generations=30,           # How many cycles to train (start with 30-50 to test)
-    num_parents_mating=5,         # How many top performers breed
+    num_parents_mating=12,         # How many top performers breed
     fitness_func=fitness_func,    # The grading rubric
     sol_per_pop=30,               # How many snakes play per generation
     num_genes=len(gene_space),    # Must match the length of gene_space
     gene_space=gene_space,        # The min/max boundaries defined above
-    parent_selection_type="sss",  # Steady-state selection
-    keep_parents=1,               # Keep the top 2 snakes identical for the next generation
+    parent_selection_type="tournament", # Changed: Tournament selection generally raises the average floor better than SSS
+    K_tournament=3,
+    keep_parents=6,               # Keep the top 2 snakes identical for the next generation
     crossover_type="single_point",
-    mutation_type="random",
-    mutation_percent_genes=15,     # Mutate ~2 genes per offspring to keep diversity
+    mutation_type="adaptive",  # Use adaptive mutation to adjust based on fitness
+    mutation_probability=[0.15, 0.02],
     on_generation=on_generation,
-    parallel_processing=["process", 30]
+    parallel_processing=["process", 13]
 )
 
 # ==========================================
