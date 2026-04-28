@@ -58,10 +58,10 @@ gene_space = [
 # CONFIGURE THE GENETIC ALGORITHM
 # ==========================================
 ga_instance = pygad.GA(
-    num_generations=30,           # How many cycles to train (start with 30-50 to test)
+    num_generations=20,           # How many cycles to train (start with 30-50 to test)
     num_parents_mating=12,         # How many top performers breed
     fitness_func=fitness_func,    # The grading rubric
-    sol_per_pop=30,               # How many snakes play per generation
+    sol_per_pop=100,               # How many snakes play per generation
     num_genes=len(gene_space),    # Must match the length of gene_space
     gene_space=gene_space,        # The min/max boundaries defined above
     parent_selection_type="tournament", # Changed: Tournament selection generally raises the average floor better than SSS

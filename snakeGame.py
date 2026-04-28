@@ -190,7 +190,7 @@ def main( headless=False, genes=None):
             space_val = 0
             
 
-            CRITICAL_DIST = 8 
+            CRITICAL_DIST = 3 
 
             if distToObstFront < CRITICAL_DIST and distToObstLeft < CRITICAL_DIST and distToObstRight < CRITICAL_DIST:
                 #print(f"!!! PANIC [F:{distToObstFront} L:{distToObstLeft} R:{distToObstRight} Space:{space_val:.2f}]")
@@ -332,7 +332,9 @@ def main( headless=False, genes=None):
                 print(f"Cycles to reach {score} food: {cyclesFor25Food}")'''
                 
         if headless:
-            fitness = (score * 1000) + cycles
+            
+            fitness = (score * 1000) + cycles 
+            
             return fitness 
             
             
